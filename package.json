@@ -1,0 +1,37 @@
+{
+  "name": "mev-arb-bot",
+  "version": "1.0.0",
+  "description": "Production MEV Flash Loan Arbitrage Bot - Aave V3 + Uniswap V2/V3 + Sushiswap",
+  "author": "MEV Bot",
+  "license": "MIT",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "test:coverage": "hardhat coverage",
+    "deploy:sepolia": "hardhat run scripts/deploy.js --network sepolia",
+    "simulate": "hardhat run scripts/simulate-arb.js --network mainnet_fork",
+    "node": "hardhat node --fork $MAINNET_RPC_URL",
+    "clean": "hardhat clean"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "@nomicfoundation/hardhat-ethers": "^3.0.0",
+    "@nomicfoundation/hardhat-chai-matchers": "^2.0.0",
+    "@nomicfoundation/hardhat-network-helpers": "^1.0.0",
+    "@nomiclabs/hardhat-etherscan": "^3.1.7",
+    "hardhat": "^2.22.0",
+    "chai": "^4.3.10",
+    "ethers": "^6.9.0",
+    "hardhat-gas-reporter": "^1.0.9",
+    "solidity-coverage": "^0.8.5",
+    "dotenv": "^16.4.1"
+  },
+  "dependencies": {
+    "@aave/core-v3": "^1.19.3",
+    "@openzeppelin/contracts": "^5.0.1",
+    "@uniswap/v2-core": "^1.0.1",
+    "@uniswap/v2-periphery": "^1.1.0-beta.0",
+    "@uniswap/v3-core": "^1.0.1",
+    "@uniswap/v3-periphery": "^1.4.4"
+  }
+}
