@@ -1,0 +1,33 @@
+# Core Web3
+web3>=6.0.0,<7.0.0
+eth-abi>=4.0.0
+eth-account>=0.10.0
+eth-typing>=3.0.0
+hexbytes>=0.3.0
+
+# Async / HTTP
+aiohttp>=3.9.0
+aiofiles>=23.2.1
+asyncio-throttle>=1.0.2
+websockets>=12.0
+
+# Environment / Config
+python-dotenv>=1.0.0
+
+# Terminal Dashboard
+rich>=13.7.0
+
+# Data Analysis / Tracking
+pandas>=2.1.0
+numpy>=1.26.0
+
+# Utilities
+python-dateutil>=2.8.2
+tenacity>=8.2.3
+colorlog>=6.8.0
+pydantic>=2.5.0
+
+# Testing
+pytest>=7.4.0
+pytest-asyncio>=0.23.0
+pytest-mock>=3.12.0
