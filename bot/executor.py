@@ -28,6 +28,10 @@ from web3.exceptions import TransactionNotFound
 
 from opportunity_detector import ArbOpportunity
 
+import os
+from bot.flashbots_executor import FlashbotsExecutor
+
+
 log = logging.getLogger("mev.executor")
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -576,3 +580,13 @@ class Executor:
                 continue
             except asyncio.CancelledError:
                 break
+
+# Config
+class Config:
+    use_flashbots: bool = os.environ.get("USE_FLASHBOTS", "false").lower() == "true"
+    flashbots_auth_key: str = os.environ.get("FLASHBOTS_AUTH_KEY", "")
+
+    # Flashbots dispatch added
+        if self.config.use_flashbots:
+            fb = FlashbotsExecutor(self.w3, self.contract, self.config)
+            return await fb.execute_arb(opportunity)
