@@ -206,7 +206,7 @@ mev-arb-bot/
 ### 1. Clone and Install
 
 ```bash
-git clone <your-repo>
+git clone https://github.com/Hamz04/mev-arb-bot.git
 cd mev-arb-bot
 
 # Install Node dependencies
@@ -282,7 +282,7 @@ Output:
 ========================================
 
 Network:         sepolia
-Deployer:        0xYourAddress
+Deployer:        0x...  # your wallet address
 Balance:         0.500000 ETH
 
 Aave V3 Pool:    0x6Ae43d3271ff6888e7Fc43Fd7321a503ff738951
@@ -292,7 +292,7 @@ Addr Provider:   0x012bAC54348C0E635dCAc9D5FB99f06F24136C9A
       OK - FlashLoanArb artifact found
 
 [2/4] Deploying FlashLoanArb...
-      Deployed at: 0xYourContractAddress
+      Deployed at: 0x...  # set after deployment
       Tx hash:     0x...
 
 [3/4] Funding contract with ETH for gas...
@@ -304,7 +304,7 @@ Addr Provider:   0x012bAC54348C0E635dCAc9D5FB99f06F24136C9A
 
 After deployment, copy the contract address to your `.env`:
 ```
-FLASHLOAN_CONTRACT_ADDRESS=0xYourContractAddress
+FLASHLOAN_CONTRACT_ADDRESS=0x...  # copy from deploy output above
 ```
 
 ### Run Mainnet Fork Simulation

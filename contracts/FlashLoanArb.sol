@@ -12,7 +12,7 @@ import "./ArbExecutor.sol";
 
 /**
  * @title FlashLoanArb
- * @author MEV Bot
+ * @author Hamzy
  * @notice Production-grade MEV arbitrage contract that:
  *         1. Borrows assets via Aave V3 flash loans (0.05% fee)
  *         2. Executes cross-DEX arbitrage in a single atomic transaction

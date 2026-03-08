@@ -2,7 +2,7 @@
   "name": "mev-arb-bot",
   "version": "1.0.0",
   "description": "Production MEV Flash Loan Arbitrage Bot - Aave V3 + Uniswap V2/V3 + Sushiswap",
-  "author": "MEV Bot",
+  "author": "Hamzy",
   "license": "MIT",
   "scripts": {
     "compile": "hardhat compile",
