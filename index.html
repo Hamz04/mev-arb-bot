@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>MEV Arb Bot | Flash Loan Arbitrage Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#060a13;--surface:#0d1117;--surface2:#161b22;--surface3:#1c2333;--border:#21262d;--text:#e6edf3;--muted:#7d8590;--green:#3fb950;--red:#f85149;--blue:#58a6ff;--orange:#d29922;--purple:#bc8cff;--cyan:#39d353;--yellow:#e3b341;--accent:#58a6ff}
+body{background:var(--bg);color:var(--text);font-family:'SF Mono','Fira Code','Courier New',monospace;font-size:13px}
+
+/* Header */
+.hdr{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.hdr-left{display:flex;align-items:center;gap:16px}
+.hdr .title{font-size:16px;font-weight:700;color:var(--accent)}
+.hdr .ver{font-size:10px;color:var(--muted);background:var(--surface2);padding:2px 8px;border-radius:4px}
+.hdr-right{display:flex;align-items:center;gap:16px;font-size:11px}
+.status-on{color:var(--green);display:flex;align-items:center;gap:6px}
+.status-on::before{content:'';width:8px;height:8px;background:var(--green);border-radius:50%;animation:blink 1.2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+.hdr-stat{color:var(--muted)}
+.hdr-stat span{color:var(--text);font-weight:600}
+
+/* Stats Bar */
+.stats-bar{display:grid;grid-template-columns:repeat(6,1fr);gap:1px;background:var(--border);border-bottom:1px solid var(--border)}
+.stat-cell{background:var(--surface);padding:14px 16px;text-align:center}
+.stat-cell .sv{font-size:22px;font-weight:800}
+.stat-cell .sl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:4px}
+@media(max-width:900px){.stats-bar{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:500px){.stats-bar{grid-template-columns:repeat(2,1fr)}}
+
+/* Layout */
+.layout{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border)}
+.panel{background:var(--surface);overflow:hidden}
+.panel-full{grid-column:span 2}
+.ph{padding:10px 16px;background:var(--surface2);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+.ph h3{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--accent);font-weight:600}
+.ph .tag{font-size:9px;padding:2px 8px;border-radius:3px}
+.tag-live{background:rgba(63,185,80,.15);color:var(--green)}
+.tag-auto{background:rgba(188,140,255,.15);color:var(--purple)}
+.tag-scan{background:rgba(88,166,255,.15);color:var(--blue)}
+.pb{padding:14px 16px}
+@media(max-width:768px){.layout{grid-template-columns:1fr}.panel-full{grid-column:span 1}}
+
+/* Arb Opportunities Table */
+.arb-table{width:100%;border-collapse:collapse;font-size:11px}
+.arb-table th{text-align:left;padding:6px 8px;color:var(--muted);font-weight:500;text-transform:uppercase;font-size:9px;letter-spacing:.5px;border-bottom:1px solid var(--border)}
+.arb-table td{padding:8px;border-bottom:1px solid var(--border);vertical-align:middle}
+.arb-table tr:hover{background:var(--surface2)}
+.arb-table tr.hot{background:rgba(63,185,80,.05)}
+.pair{color:var(--accent);font-weight:700}
+.dex-path{color:var(--muted);font-size:10px}
+.dex-path .arrow{color:var(--orange);margin:0 4px}
+.spread-pos{color:var(--green);font-weight:700}
+.spread-neg{color:var(--red)}
+.profit-est{color:var(--green);font-weight:700}
+.gas-cost{color:var(--orange)}
+.exec-btn{background:var(--green);color:#000;border:none;padding:3px 10px;border-radius:3px;font-size:10px;font-weight:700;font-family:inherit;cursor:pointer}
+.exec-btn:hover{opacity:.8}
+.exec-btn.pending{background:var(--orange);color:#000}
+.exec-btn.missed{background:var(--surface3);color:var(--muted)}
+
+/* Execution Log */
+.exec-log{max-height:380px;overflow-y:auto;font-size:11px}
+.exec-log::-webkit-scrollbar{width:4px}
+.exec-log::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.log-entry{padding:10px 0;border-bottom:1px solid var(--border);display:grid;grid-template-columns:80px 1fr auto;gap:10px;align-items:start}
+.log-entry:last-child{border:none}
+.log-time{color:var(--muted);font-size:10px}
+.log-detail .log-title{font-weight:600;margin-bottom:3px}
+.log-detail .log-meta{color:var(--muted);font-size:10px;display:flex;gap:12px;flex-wrap:wrap}
+.log-detail .log-meta span{display:flex;align-items:center;gap:4px}
+.log-result{text-align:right;font-weight:700;font-size:12px}
+.log-result.success{color:var(--green)}
+.log-result.failed{color:var(--red)}
+.log-result.pending{color:var(--orange)}
+.tx-hash{font-family:monospace;color:var(--cyan);font-size:10px}
+
+/* DEX Prices */
+.dex-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+.dex-card{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px}
+.dex-card .dex-name{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.dex-card .dex-price{font-size:18px;font-weight:800}
+.dex-card .dex-liq{font-size:10px;color:var(--muted);margin-top:4px}
+.dex-card .dex-diff{font-size:11px;margin-top:4px;font-weight:600}
+.dex-card.best{border-color:var(--green)}
+.dex-card.worst{border-color:var(--red)}
+
+/* Chart */
+.chart-wrap{position:relative;height:250px}
+
+/* Mempool */
+.mempool-feed{max-height:300px;overflow-y:auto;font-size:11px}
+.mempool-feed::-webkit-scrollbar{width:4px}
+.mempool-feed::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.mp-entry{padding:8px 0;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:center}
+.mp-type{font-size:9px;padding:2px 8px;border-radius:3px;font-weight:700;flex-shrink:0;width:60px;text-align:center}
+.mp-swap{background:rgba(88,166,255,.15);color:var(--blue)}
+.mp-liq{background:rgba(188,140,255,.15);color:var(--purple)}
+.mp-flash{background:rgba(227,179,65,.15);color:var(--yellow)}
+.mp-detail{flex:1;color:var(--muted)}
+.mp-detail .mp-pair{color:var(--text);font-weight:600}
+.mp-val{color:var(--text);font-weight:600;text-align:right}
+.mp-gas{color:var(--orange);font-size:10px;text-align:right;min-width:60px}
+
+/* Footer */
+.ftr{background:var(--surface);border-top:1px solid var(--border);padding:8px 24px;display:flex;justify-content:space-between;font-size:10px;color:var(--muted)}
+.ftr a{color:var(--accent);text-decoration:none}
+
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.panel{animation:fadeIn .3s ease}
+.flash{animation:flashBg .8s}@keyframes flashBg{0%{background:rgba(63,185,80,.1)}100%{background:transparent}}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="hdr-left">
+    <div class="title">[MEV-ARB-BOT]</div>
+    <div class="ver">v2.1.0</div>
+    <div class="status-on">SCANNING</div>
+  </div>
+  <div class="hdr-right">
+    <div class="hdr-stat">Block: <span id="blockNum">19,284,521</span></div>
+    <div class="hdr-stat">Gas: <span id="gasPrice">32</span> gwei</div>
+    <div class="hdr-stat">Mempool: <span id="mempoolCount">1,247</span> txns</div>
+    <div id="clock" style="color:var(--muted)">--:--:--</div>
+  </div>
+</div>
+
+<div class="stats-bar">
+  <div class="stat-cell"><div class="sv" style="color:var(--green)" id="totalProfit">$47,832</div><div class="sl">Total Profit (24h)</div></div>
+  <div class="stat-cell"><div class="sv" style="color:var(--text)" id="totalTrades">342</div><div class="sl">Executions (24h)</div></div>
+  <div class="stat-cell"><div class="sv" style="color:var(--green)" id="winRate">87.4%</div><div class="sl">Win Rate</div></div>
+  <div class="stat-cell"><div class="sv" style="color:var(--orange)" id="avgGas">$12.40</div><div class="sl">Avg Gas Cost</div></div>
+  <div class="stat-cell"><div class="sv" style="color:var(--cyan)" id="flashLoans">156</div><div class="sl">Flash Loans</div></div>
+  <div class="stat-cell"><div class="sv" style="color:var(--purple)" id="dexCount">8</div><div class="sl">DEXs Monitored</div></div>
+</div>
+
+<div class="layout">
+  <!-- Arb Opportunities -->
+  <div class="panel panel-full">
+    <div class="ph"><h3>Live Arbitrage Opportunities</h3><div style="display:flex;gap:8px"><span class="tag tag-scan">SCANNING 8 DEXs</span><span class="tag tag-live">LIVE</span></div></div>
+    <div class="pb">
+      <table class="arb-table">
+        <thead><tr><th>Pair</th><th>Route</th><th>Spread</th><th>Est. Profit</th><th>Gas</th><th>Net</th><th>Flash Loan</th><th>Action</th></tr></thead>
+        <tbody id="arbBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- PnL Chart -->
+  <div class="panel">
+    <div class="ph"><h3>Profit & Loss - 24h</h3><span class="tag tag-live">REAL-TIME</span></div>
+    <div class="pb"><div class="chart-wrap"><canvas id="pnlChart"></canvas></div></div>
+  </div>
+
+  <!-- DEX Price Comparison -->
+  <div class="panel">
+    <div class="ph"><h3>DEX Price Comparison - ETH/USDC</h3><span class="tag tag-scan">CROSS-DEX</span></div>
+    <div class="pb"><div class="dex-grid" id="dexGrid"></div></div>
+  </div>
+
+  <!-- Execution Log -->
+  <div class="panel">
+    <div class="ph"><h3>Flash Loan Execution Log</h3><span class="tag tag-auto">AUTO-EXEC</span></div>
+    <div class="pb"><div class="exec-log" id="execLog"></div></div>
+  </div>
+
+  <!-- Mempool Monitor -->
+  <div class="panel">
+    <div class="ph"><h3>Mempool Scanner</h3><span class="tag tag-scan">PENDING TXS</span></div>
+    <div class="pb"><div class="mempool-feed" id="mempoolFeed"></div></div>
+  </div>
+
+  <!-- Gas & Volume Chart -->
+  <div class="panel panel-full">
+    <div class="ph"><h3>Arbitrage Volume & Gas Tracker</h3><span class="tag tag-live">24H</span></div>
+    <div class="pb"><div class="chart-wrap"><canvas id="volChart"></canvas></div></div>
+  </div>
+</div>
+
+<div class="ftr">
+  <span>MEV Arb Bot | Python, Web3.py, Flashbots, Aave Flash Loans</span>
+  <span id="ftrTime"></span>
+  <a href="https://github.com/Hamz04/mev-arb-bot">View Source on GitHub</a>
+</div>
+
+<script>
+// ====== DATA ======
+const pairs=['ETH/USDC','WBTC/ETH','LINK/ETH','UNI/USDC','AAVE/ETH','CRV/USDC','MKR/ETH','SNX/USDC','COMP/ETH','LDO/USDC'];
+const dexes=['Uniswap V3','Uniswap V2','SushiSwap','Curve','Balancer','1inch','PancakeSwap','dYdX'];
+const txPrefixes=['0x3a7f','0x8b2c','0x1d9e','0x5f4a','0xc6b1','0x7e3d','0x2a8f','0x9c5b','0x4d1e','0x6f2a'];
+
+function rnd(a,b){return Math.random()*(b-a)+a;}
+function rndInt(a,b){return Math.floor(rnd(a,b));}
+function rndTx(){return txPrefixes[rndInt(0,txPrefixes.length)]+'...'+Math.random().toString(16).substr(2,8);}
+function rndPair(){return pairs[rndInt(0,pairs.length)];}
+function rndDex(){return dexes[rndInt(0,dexes.length)];}
+
+// ====== ARB TABLE ======
+function genArbRows(){
+  let html='';
+  for(let i=0;i<10;i++){
+    const pair=rndPair();
+    const dex1=rndDex(),dex2=rndDex();
+    const spread=rnd(0.05,2.8).toFixed(2);
+    const profit=rnd(20,800).toFixed(0);
+    const gas=rnd(5,35).toFixed(0);
+    const net=(profit-gas).toFixed(0);
+    const flash=rnd(10,500).toFixed(0)+'K';
+    const hot=parseFloat(spread)>1.5;
+    const status=i<3?'exec-btn':i<6?'exec-btn pending':'exec-btn missed';
+    const label=i<3?'EXECUTE':i<6?'PENDING':'MISSED';
+    html+=`<tr class="${hot?'hot':''}">
+      <td class="pair">${pair}</td>
+      <td><span class="dex-path">${dex1}<span class="arrow">-></span>${dex2}</span></td>
+      <td class="spread-pos">${spread}%</td>
+      <td class="profit-est">$${profit}</td>
+      <td class="gas-cost">$${gas}</td>
+      <td style="color:${net>0?'var(--green)':'var(--red)'};">$${net}</td>
+      <td style="color:var(--purple)">${flash}</td>
+      <td><button class="${status}">${label}</button></td>
+    </tr>`;
+  }
+  document.getElementById('arbBody').innerHTML=html;
+}
+
+// ====== DEX PRICES ======
+function genDexPrices(){
+  const base=3584+rnd(-20,20);
+  const prices=dexes.slice(0,6).map(d=>{const p=base+rnd(-8,8);return{name:d,price:p};});
+  prices.sort((a,b)=>a.price-b.price);
+  const min=prices[0].price,max=prices[prices.length-1].price;
+  document.getElementById('dexGrid').innerHTML=prices.map((p,i)=>{
+    const diff=((p.price-min)/min*100).toFixed(3);
+    const cls=i===0?'dex-card best':i===prices.length-1?'dex-card worst':'dex-card';
+    const liq='$'+rnd(10,500).toFixed(0)+'M';
+    return `<div class="${cls}">
+      <div class="dex-name">${p.name}${i===0?' (BEST BID)':i===prices.length-1?' (BEST ASK)':''}</div>
+      <div class="dex-price">$${p.price.toFixed(2)}</div>
+      <div class="dex-liq">Liquidity: ${liq}</div>
+      <div class="dex-diff" style="color:${i===0?'var(--green)':i===prices.length-1?'var(--red)':'var(--muted)'}">${i===0?'Lowest':'+'+diff+'%'}</div>
+    </div>`;
+  }).join('');
+}
+
+// ====== EXEC LOG ======
+function genExecLog(){
+  let html='';
+  for(let i=0;i<15;i++){
+    const pair=rndPair();
+    const d1=rndDex(),d2=rndDex();
+    const profit=rnd(-20,600).toFixed(0);
+    const success=parseFloat(profit)>0;
+    const gas=rnd(5,30).toFixed(0);
+    const flash=rnd(10,500).toFixed(0)+'K';
+    const mins=rndInt(1,120);
+    const label=success?'+$'+profit:'REVERTED';
+    html+=`<div class="log-entry">
+      <div class="log-time">${mins}m ago</div>
+      <div class="log-detail">
+        <div class="log-title">${pair} | ${d1} -> ${d2}</div>
+        <div class="log-meta">
+          <span>Flash: $${flash}</span>
+          <span>Gas: $${gas}</span>
+          <span class="tx-hash">${rndTx()}</span>
+        </div>
+      </div>
+      <div class="log-result ${success?'success':'failed'}">${label}</div>
+    </div>`;
+  }
+  document.getElementById('execLog').innerHTML=html;
+}
+
+// ====== MEMPOOL ======
+function genMempool(){
+  const types=[{label:'SWAP',cls:'mp-swap'},{label:'LP',cls:'mp-liq'},{label:'FLASH',cls:'mp-flash'}];
+  let html='';
+  for(let i=0;i<20;i++){
+    const t=types[rndInt(0,types.length)];
+    const pair=rndPair();
+    const val='$'+rnd(1,200).toFixed(0)+'K';
+    const gas=rndInt(15,80);
+    html+=`<div class="mp-entry">
+      <span class="mp-type ${t.cls}">${t.label}</span>
+      <div class="mp-detail"><span class="mp-pair">${pair}</span> on ${rndDex()}</div>
+      <div class="mp-val">${val}</div>
+      <div class="mp-gas">${gas} gwei</div>
+    </div>`;
+  }
+  document.getElementById('mempoolFeed').innerHTML=html;
+}
+
+// ====== PNL CHART ======
+function initPnlChart(){
+  const ctx=document.getElementById('pnlChart').getContext('2d');
+  const labels=[];for(let i=0;i<24;i++)labels.push(i+':00');
+  let cum=0;
+  const data=labels.map(()=>{cum+=rnd(-200,500);return Math.max(cum,cum*0.2);});
+  new Chart(ctx,{
+    type:'line',
+    data:{
+      labels,
+      datasets:[{
+        label:'Cumulative PnL ($)',
+        data,
+        borderColor:'#3fb950',
+        backgroundColor:'rgba(63,185,80,.1)',
+        fill:true,tension:.4,pointRadius:0,borderWidth:2
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#7d8590',font:{size:10,family:'SF Mono, monospace'}}}},
+      scales:{
+        x:{grid:{color:'rgba(33,38,45,.8)'},ticks:{color:'#7d8590',font:{size:9}}},
+        y:{grid:{color:'rgba(33,38,45,.8)'},ticks:{color:'#7d8590',font:{size:9},callback:v=>'$'+v.toLocaleString()}}
+      }
+    }
+  });
+}
+
+// ====== VOLUME CHART ======
+function initVolChart(){
+  const ctx=document.getElementById('volChart').getContext('2d');
+  const labels=[];for(let i=0;i<24;i++)labels.push(i+':00');
+  new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels,
+      datasets:[
+        {label:'Arb Volume ($K)',data:labels.map(()=>rndInt(50,800)),backgroundColor:'rgba(88,166,255,.5)',borderRadius:3,order:2},
+        {label:'Gas Spent ($)',data:labels.map(()=>rndInt(100,600)),type:'line',borderColor:'#d29922',backgroundColor:'transparent',tension:.4,pointRadius:0,borderWidth:2,yAxisID:'y1',order:1}
+      ]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#7d8590',font:{size:10,family:'SF Mono, monospace'}}}},
+      scales:{
+        x:{grid:{color:'rgba(33,38,45,.8)'},ticks:{color:'#7d8590',font:{size:9}}},
+        y:{grid:{color:'rgba(33,38,45,.8)'},ticks:{color:'#7d8590',font:{size:9},callback:v=>'$'+v+'K'},position:'left'},
+        y1:{grid:{display:false},ticks:{color:'#d29922',font:{size:9},callback:v=>'$'+v},position:'right'}
+      }
+    }
+  });
+}
+
+// ====== LIVE UPDATES ======
+function liveUpdate(){
+  // Block number
+  const bn=document.getElementById('blockNum');
+  const cur=parseInt(bn.textContent.replace(/,/g,''));
+  bn.textContent=(cur+1).toLocaleString();
+  
+  // Gas price
+  document.getElementById('gasPrice').textContent=rndInt(18,65);
+  
+  // Mempool count  
+  document.getElementById('mempoolCount').textContent=rndInt(800,2000).toLocaleString();
+  
+  // Random table row flash
+  const rows=document.querySelectorAll('#arbBody tr');
+  if(rows.length){
+    const idx=rndInt(0,rows.length);
+    rows[idx].classList.add('flash');
+    setTimeout(()=>rows[idx].classList.remove('flash'),800);
+  }
+}
+
+function bigUpdate(){
+  genArbRows();
+  genDexPrices();
+  genMempool();
+}
+
+// ====== CLOCK ======
+function tick(){
+  const now=new Date();
+  document.getElementById('clock').textContent=now.toLocaleTimeString('en-US',{hour12:false});
+  document.getElementById('ftrTime').textContent=now.toLocaleString();
+}
+
+// ====== INIT ======
+window.addEventListener('load',()=>{
+  genArbRows();
+  genDexPrices();
+  genExecLog();
+  genMempool();
+  initPnlChart();
+  initVolChart();
+  tick();
+  setInterval(tick,1000);
+  setInterval(liveUpdate,1500);
+  setInterval(bigUpdate,8000);
+});
+</script>
+</body>
+</html>
